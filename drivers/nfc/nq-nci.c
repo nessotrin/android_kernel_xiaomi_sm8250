@@ -267,8 +267,16 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 	dev_dbg(&nqx_dev->client->dev, "%s : reading %zu bytes.\n",
 			__func__, count);
 
-	mutex_lock(&nqx_dev->read_mutex);
-
+	if(filp->f_flags & O_NONBLOCK) {
+		if(!mutex_trylock(&nqx_dev->read_mutex)){
+            ret = -EAGAIN;
+            dev_dbg(&nqx_dev->client->dev, "%s : busy, returning -EAGAIN.\n",
+				__func__);
+        	goto out;
+		}
+	} else {
+		mutex_lock(&nqx_dev->read_mutex);
+	}
 	irq_gpio_val = gpio_get_value(nqx_dev->irq_gpio);
 	if (irq_gpio_val == 0) {
 		if (filp->f_flags & O_NONBLOCK) {
